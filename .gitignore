@@ -16,8 +16,8 @@ venv/
 .venv/
 
 # Jupyter Notebook
-.ipynb_checkpoints
-*.ipynb
+# .ipynb_checkpoints
+# *.ipynb
 
 # MLflow
 mlruns/
