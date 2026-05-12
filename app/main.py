@@ -39,19 +39,30 @@ def predict(req: FeaturesRequest):
 
 class TickerRequest(BaseModel):
     ticker: str
-    market: Literal["kz", "us"] = "kz"
+    market: Literal["kz", "us", "auto"] = "auto"
 
 
 @app.post("/predict/ticker")
 def predict_ticker(req: TickerRequest):
-    import pandas as pd
     from app.predict import predict_from_ohlcv
+    from app.pipeline.ingest.tickers import KASE_TICKERS
 
     ticker = req.ticker.strip().upper()
+
+    if req.market == "auto":
+        # Case-insensitive lookup since KASE tickers can have mixed case (e.g. "AMGZp")
+        kase_upper = {t.upper() for t in KASE_TICKERS}
+        market = "kz" if ticker in kase_upper else "us"
+    else:
+        market = req.market
+
     try:
-        if req.market == "kz":
+        if market == "kz":
             from app.pipeline.ingest.kase_fetcher import fetch_ohlcv_kase
-            df = fetch_ohlcv_kase(ticker, start="2020-01-01")
+            # Restore original casing for KASE endpoint
+            kase_map = {t.upper(): t for t in KASE_TICKERS}
+            kase_ticker = kase_map.get(ticker, ticker)
+            df = fetch_ohlcv_kase(kase_ticker, start="2020-01-01")
         else:
             from app.pipeline.ingest.yfinance_fetcher import fetch_ohlcv
             df = fetch_ohlcv(ticker, period="3y")
@@ -67,5 +78,5 @@ def predict_ticker(req: TickerRequest):
         raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
 
     result["ticker"] = ticker
-    result["market"] = req.market
+    result["market"] = market
     return result

@@ -5,6 +5,7 @@ import os
 
 import requests
 import streamlit as st
+from app.pipeline.ingest.tickers import KASE_TICKERS, KASE_NAMES, US_TICKERS
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
@@ -72,22 +73,22 @@ with tab1:
 # ── Tab 2: By ticker ──────────────────────────────────────────────────────────
 with tab2:
     st.subheader("Predict by ticker (live data fetch)")
-    col_a, col_b = st.columns([3, 1])
-    with col_a:
-        ticker_input = st.text_input("Ticker symbol", value="KSPI")
-    with col_b:
-        market = st.selectbox("Market", ["kz", "us"])
+    st.caption("Market is detected automatically: KZ tickers are matched against KASE, everything else is treated as US.")
+
+    ticker_input = st.text_input("Ticker symbol", value="KSPI")
 
     if st.button("Predict", key="btn_ticker"):
         with st.spinner(f"Fetching data for {ticker_input.upper()} and predicting…"):
             try:
                 resp = requests.post(
                     f"{API_URL}/predict/ticker",
-                    json={"ticker": ticker_input.strip(), "market": market},
+                    json={"ticker": ticker_input.strip(), "market": "auto"},
                     timeout=60,
                 )
                 resp.raise_for_status()
                 result = resp.json()
+                detected_market = result.get("market", "?").upper()
+                st.info(f"Detected market: **{detected_market}**")
                 show_result(result)
             except requests.HTTPError as e:
                 try:
@@ -97,3 +98,20 @@ with tab2:
                 st.error(f"Error: {detail}")
             except requests.RequestException as e:
                 st.error(f"API error: {e}")
+
+    st.divider()
+
+    col_kz, col_us = st.columns(2)
+
+    with col_kz:
+        st.markdown("#### KZ Market (KASE)")
+        kz_rows = [
+            f"`{t}` — {KASE_NAMES.get(t, '')}" for t in KASE_TICKERS
+        ]
+        st.markdown("\n\n".join(kz_rows))
+
+    with col_us:
+        st.markdown("#### US Market (NYSE / Nasdaq)")
+        us_rows = [f"`{t}`" for t in US_TICKERS]
+        # Show in a scrollable text area to keep the page compact
+        st.markdown("\n\n".join(us_rows))
