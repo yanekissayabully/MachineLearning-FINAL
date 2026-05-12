@@ -10,7 +10,8 @@ scaler  = joblib.load("scaler_kz.pkl")
 encoder = joblib.load("label_encoder_kz.pkl")
 features: list[str] = joblib.load("features_list.pkl")
 
-LABEL_MAP = {0: "Buy", 1: "Hold", 2: "Sell"}
+def _normalize_label(raw) -> str:
+    return str(raw).capitalize()
 
 
 def predict_from_dict(values: dict[str, float]) -> dict:
@@ -18,16 +19,20 @@ def predict_from_dict(values: dict[str, float]) -> dict:
     scaled = scaler.transform(row)
     proba = model.predict_proba(scaled)[0]
     class_idx = int(np.argmax(proba))
-    # encoder.inverse_transform gives original int label (0/1/2)
-    label_int = int(encoder.inverse_transform([class_idx])[0])
-    signal = LABEL_MAP.get(label_int, str(label_int))
+    raw_label = encoder.inverse_transform([class_idx])[0]
+    signal = _normalize_label(raw_label)
+
+    # Build per-signal probabilities keyed by normalized class name
+    classes = [_normalize_label(c) for c in encoder.classes_]
+    prob_dict = {cls: float(proba[i]) for i, cls in enumerate(classes)}
+
     return {
         "signal": signal,
         "confidence": float(proba[class_idx]),
         "probabilities": {
-            "Buy":  float(proba[encoder.transform([0])[0]]) if 0 in encoder.classes_ else 0.0,
-            "Hold": float(proba[encoder.transform([1])[0]]) if 1 in encoder.classes_ else 0.0,
-            "Sell": float(proba[encoder.transform([2])[0]]) if 2 in encoder.classes_ else 0.0,
+            "Buy":  prob_dict.get("Buy", 0.0),
+            "Hold": prob_dict.get("Hold", 0.0),
+            "Sell": prob_dict.get("Sell", 0.0),
         },
     }
 
