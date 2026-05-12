@@ -1,11 +1,27 @@
+# core data / ML
 pandas
 numpy
-matplotlib
-seaborn
 scikit-learn
 xgboost
 joblib
+
+# visualization (notebooks)
+matplotlib
+seaborn
+
+# notebook environment
 jupyter
 notebook
 ipykernel
 nbconvert
+
+# serving
+fastapi
+uvicorn
+streamlit
+requests
+pydantic
+yfinance
+ta
+pyarrow
+apscheduler
